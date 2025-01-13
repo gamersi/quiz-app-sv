@@ -27,8 +27,16 @@ export const load: PageServerLoad = async (event) => {
 export const actions: Actions = {
 	submit: async (event) => {
 		const formData = await event.request.formData();
-		const answer = formData.get('answer') as string;
+		const answer = formData.get('answer')?.toString().trim();
 		const quizId = Number(formData.get('id'));
+
+		if (!quizId) {
+			return fail(400, { message: 'Invalid quiz ID' });
+		}
+
+		if (!answer) {
+			return fail(400, { message: 'Answer cannot be empty' });
+		}
 
 		const recentSubmission = (
 			await db
