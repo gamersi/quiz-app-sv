@@ -3,6 +3,20 @@ import type { Actions, PageServerLoad } from './$types';
 import { desc, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import * as table from '$lib/server/db/schema';
+import { EmailSender, type EmailConfig, type EmailMessage } from '$lib/server/mailer';
+import { env } from '$env/dynamic/private';
+
+const emailConfig: EmailConfig = {
+	host: env.SMTP_HOST || 'smtp.gmail.com',
+	port: parseInt(env.SMTP_PORT || '587'),
+	secure: env.SMTP_SECURE === 'true',
+	auth: {
+		user: env.SMTP_USER || '',
+		pass: env.SMTP_PASS || ''
+	}
+};
+
+const emailSender = new EmailSender(emailConfig);
 
 export const load: PageServerLoad = async (event) => {
 	const name = event.params.name;
@@ -67,9 +81,12 @@ export const actions: Actions = {
 		const quiz = (
 			await db
 				.select({
-					answer: table.quiz.answer
+					name: table.quiz.name,
+					answer: table.quiz.answer,
+					adminEmail: table.admin.email
 				})
 				.from(table.quiz)
+				.innerJoin(table.admin, eq(table.quiz.adminId, table.admin.id))
 				.where(eq(table.quiz.id, quizId))
 		).at(0);
 
@@ -81,6 +98,22 @@ export const actions: Actions = {
 			await db
 				.insert(table.submission)
 				.values({ quizId, answer, correct: true, createdAt: new Date() });
+
+			const emailPromise = emailSender.sendEmail({
+				from: emailConfig.auth.user,
+				to: quiz.adminEmail,
+				subject: 'Correct answer submitted for ' + quiz.name,
+				html: `
+					<h2>Correct answer submitted for ${quiz.name}</h2>
+					<p>Answer: ${answer}</p>
+					<p>Submission time: ${new Date().toLocaleString("de-AT")}</p>
+				`
+			});
+
+			emailPromise.catch((error) => {
+				console.error('Error sending email:', error);
+			});
+			
 			return { success: true, message: answer + ' is correct' };
 		} else {
 			await db

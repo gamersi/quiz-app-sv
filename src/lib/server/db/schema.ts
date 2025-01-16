@@ -22,12 +22,12 @@ export const quiz = pgTable('quiz', {
 	body: text('body').notNull(),
 	submitText: text('submitText').notNull(),
 	answer: text('answer').notNull(),
-	adminId: text('adminId').references(() => admin.id)
+	adminId: text('adminId').references(() => admin.id, { onDelete: 'cascade' })
 });
 
 export const submission = pgTable('submission', {
 	id: serial('id').primaryKey(),
-	quizId: integer('quizId').references(() => quiz.id),
+	quizId: integer('quizId').references(() => quiz.id, { onDelete: 'cascade' }),
 	answer: text('answer').notNull(),
 	correct: boolean('correct').notNull(),
 	createdAt: timestamp('createdAt', { withTimezone: true, mode: 'date' }).notNull()
