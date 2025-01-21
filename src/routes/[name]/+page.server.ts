@@ -18,6 +18,50 @@ const emailConfig: EmailConfig = {
 
 const emailSender = new EmailSender(emailConfig);
 
+function parseRegexString(regexStr: string) {
+	regexStr = regexStr.trim();
+	
+	if (regexStr.startsWith('/')) {
+	  const lastSlashIndex = regexStr.lastIndexOf('/');
+	  
+	  if (lastSlashIndex <= 0) {
+		return {
+		  pattern: regexStr,
+		  flags: '',
+		  regexp: new RegExp(regexStr, '')
+		};
+	  }
+	  
+	  const pattern = regexStr.slice(1, lastSlashIndex);
+	  const flags = regexStr.slice(lastSlashIndex + 1);
+	  
+	  const validFlags = ['g', 'i', 'm', 's', 'u', 'y', 'd'];
+	  const uniqueFlags = [...new Set(flags)].join('');
+	  
+	  if (flags !== uniqueFlags) {
+		throw new Error('Invalid regex: duplicate flags are not allowed');
+	  }
+	  
+	  for (const flag of flags) {
+		if (!validFlags.includes(flag)) {
+		  throw new Error(`Invalid flag: ${flag}`);
+		}
+	  }
+	  
+	  return {
+		pattern,
+		flags,
+		regexp: new RegExp(pattern, flags)
+	  };
+	}
+	
+	return {
+	  pattern: regexStr,
+	  flags: '',
+	  regexp: new RegExp(regexStr, '')
+	};
+}
+
 export const load: PageServerLoad = async (event) => {
 	const name = event.params.name;
 
@@ -94,7 +138,7 @@ export const actions: Actions = {
 			return fail(400, { message: 'Quiz not found' });
 		}
 
-		if (RegExp(quiz.answer).test(answer)) {
+		if (parseRegexString(quiz.answer).regexp.test(answer)) {
 			await db
 				.insert(table.submission)
 				.values({ quizId, answer, correct: true, createdAt: new Date() });
